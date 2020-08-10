@@ -20,8 +20,8 @@
 #' to turn on write `TRUE`.
 #' @param horizontal_lines If `TRUE` (default), horizontal dashed lines will
 #'   appear behind the bars of the pyramid
-#' @param pyramid if `TRUE`, then binary `split_by` variables will result in 
-#'   a population pyramid (non-binary variables cannot form a pyramid). If 
+#' @param pyramid if `TRUE`, then binary `split_by` variables will result in
+#'   a population pyramid (non-binary variables cannot form a pyramid). If
 #'   `FALSE`, a pyramid will not form.
 #' @param pal a color palette function or vector of colors to be passed to
 #'   [ggplot2::scale_fill_manual()] defaults to the first "qual" palette from
@@ -33,7 +33,7 @@
 #' indicating the range of the un-facetted data set. Values of `spit_by` will
 #' show up as labels at top of each facet.
 #'
-#' @importFrom apyramid age_pyramid 
+#' @importFrom apyramid age_pyramid
 #' @export
 #' @examples
 #' library(ggplot2)
@@ -54,7 +54,7 @@
 #'
 #' # Create the age pyramid, stratifying by sex
 #' print(ap   <- plot_age_pyramid(dat, age_group = AGE))
-#' 
+#'
 #' # Create the age pyramid, stratifying by gender, which can include non-binary
 #' print(apg  <- plot_age_pyramid(dat, age_group = AGE, split_by = gender))
 #'
@@ -80,7 +80,7 @@
 #'                        vertical_lines = TRUE) +
 #'   labs(title = "Age groups by case definition and sex")
 #' print(ap)
-#' 
+#'
 #' # Display proportions
 #' ap <- plot_age_pyramid(dat,
 #'                        age_group = AGE,
@@ -90,19 +90,19 @@
 #'                        vertical_lines = TRUE) +
 #'   labs(title = "Age groups by case definition and sex")
 #' print(ap)
-#' 
+#'
 #' # empty group levels will still be displayed
 #' dat3 <- dat2
 #' dat3[dat$AGE == "[0,5)", "sex"] <- NA
-#' plot_age_pyramid(dat3, age_group = AGE) 
+#' plot_age_pyramid(dat3, age_group = AGE)
 #' theme_set(old)
 plot_age_pyramid <- function(data, age_group = "age_group", split_by = "sex",
-                             stack_by = NULL, proportional = FALSE, na.rm = FALSE,
-                             show_halfway = TRUE, vertical_lines = FALSE, 
-                             horizontal_lines = TRUE, pyramid = TRUE, 
+                             stack_by = NULL, proportional = FALSE, na.rm = TRUE,
+                             show_halfway = TRUE, vertical_lines = FALSE,
+                             horizontal_lines = TRUE, pyramid = TRUE,
                              pal = NULL) {
-  
-  age_pyramid(data, 
+
+  age_pyramid(data,
               age_group        = {{age_group}},
               split_by         = {{split_by}},
               stack_by         = {{stack_by}},

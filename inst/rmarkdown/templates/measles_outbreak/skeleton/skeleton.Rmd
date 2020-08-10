@@ -176,7 +176,7 @@ If you didn't use the standardized data dictionary, go to read_nonDHIS_data.
 
 ## Excel file ------------------------------------------------------------------
 ## For a specific sheet, use "which"
-# linelist_raw <- rio::import(here::here("linelist.xlsx"), which = "Sheet1")
+# linelist_raw <- rio::import(here::here("Data", "linelist.xlsx"), which = "Sheet1")
 
 
 
@@ -186,7 +186,7 @@ If you didn't use the standardized data dictionary, go to read_nonDHIS_data.
 # install.packages(c("excel.link", "askpass"))
 # library(excel.link)
 
-# linelist_raw <- xl.read.file(here::here("linelist.xlsx"),
+# linelist_raw <- xl.read.file(here::here("Data", "linelist.xlsx"),
 #                              xl.sheet = "Sheet1",
 #                              password = askpass::askpass(prompt = "please enter file password"))
 ``` 
@@ -256,13 +256,13 @@ If you have already loaded data from DHIS2, go to read_population_data.
 
 ## Excel file ------------------------------------------------------------------
 ## to read in a specific sheet use "which"
-# linelist_raw <- rio::import(here::here("linelist.xlsx"), which = "Sheet1")
+# linelist_raw <- rio::import(here::here("Data", "linelist.xlsx"), which = "Sheet1")
 
 
 
 ## Excel file -- Specific range ------------------------------------------------
 ## you can specify a range in an excel sheet.
-# linelist_raw <- rio::import(here::here("linelist.xlsx"), range = "B2:J102")
+# linelist_raw <- rio::import(here::here("Data", "linelist.xlsx"), range = "B2:J102")
 
 
 
@@ -272,18 +272,18 @@ If you have already loaded data from DHIS2, go to read_population_data.
 # install.packages(c("excel.link", "askpass"))
 # library(excel.link)
 
-# linelist_raw <- xl.read.file(here::here("linelist.xlsx"),
+# linelist_raw <- xl.read.file(here::here("Data", "linelist.xlsx"),
 #                              xl.sheet = "Sheet1",
 #                              password = askpass::askpass(prompt = "please enter file password"))
 
 
 ## CSV file --------------------------------------------------------------------
-# linelist_raw <- rio::import(here::here("linelist.csv"))
+# linelist_raw <- rio::import(here::here("Data", "linelist.csv"))
 
 
 
 ## Stata data file -------------------------------------------------------------
-# linelist_raw <- rio::import(here::here("linelist.dat"))
+# linelist_raw <- rio::import(here::here("Data", "linelist.dat"))
 ```
 
 
@@ -396,7 +396,7 @@ If you have more specific proportions, you can use them below.
 ## This step reads in your population data from Excel.
 ## You may need to rename your columns.
 
-# population_data <- rio::import(here::here("population.xlsx"), which = "Sheet1")
+# population_data <- rio::import(here::here("Data", "population.xlsx"), which = "Sheet1")
 
 ## repeat preparation steps as appropriate
 
@@ -414,7 +414,7 @@ If you have more specific proportions, you can use them below.
 # population_data_region <- gen_population(
 #   groups = c("Village A", "Village B", "Village C", "Village D"),
 #   counts = c(10000, 20000, 15000, 5000),
-#   strata = NULL) %>%               # do not stratify by gender
+#   strata = NULL) %>%               # do not stratify
 #   rename(patient_origin = groups,  # rename columns (syntax is NEW NAME = OLD NAME)
 #          population = n)
 
@@ -458,7 +458,7 @@ population_data_age_months <- gen_population(total_pop = 5000,
 population_data_region <- gen_population(total_pop = 5000,         # set the total population
   groups = c("Village A", "Village B", "Village C", "Village D"),  # set the groups
   proportions = c(0.221, 0.174, 0.355, 0.245),                     # set the proportions for each group
-  strata = NULL) %>%               # do not stratify by gender
+  strata = NULL) %>%               # do not stratify
   rename(patient_origin = groups,  # rename columns (syntax is NEW NAME = OLD NAME)
          population = n)
 
@@ -481,7 +481,7 @@ linelist.
 ## You may need to rename your columns.
 
 ## to read in a specific sheet use "which"
-# lab_data <- rio::import(here::here("labresults.xlsx"), which = "Sheet1")
+# lab_data <- rio::import(here::here("Data", "labresults.xlsx"), which = "Sheet1")
 
 ## repeat preparation steps as appropriate
 ## make sure your unique ID variable name matches!
@@ -518,6 +518,11 @@ summary(linelist_cleaned)
 ## view unique values contained in variables 
 ## you can run this for any column -- just replace the column name
 unique(linelist_cleaned$patient_origin) 
+
+## use the dfSummary function in combination with view
+## note that view is not capitalised with this package
+# summarytools::dfSummary(linelist_cleaned) %>%
+#   summarytools::view()
 
 ```
 
@@ -588,7 +593,8 @@ This chunk will help you set up and clean your date variables.
 ## If not, comment this section out and use the below.
 
 ## make sure all date variables are formatted as dates 
-DATEVARS <- filter(linelist_dict, data_element_valuetype == "DATE") %>%
+DATEVARS <- linelist_dict %>% 
+  filter(data_element_valuetype == "DATE") %>%
   filter(data_element_shortname %in% names(linelist_cleaned)) %>% 
   ## filter to match the column names of your data
   pull(data_element_shortname) 
@@ -738,10 +744,8 @@ includes numeric, factor, and character vectors.
 ## You can adapt this step to create other calculated variables
 
 ## create number of days under observation
-linelist_cleaned <- mutate(linelist_cleaned, 
-                           obs_days = as.numeric(date_of_exit - 
-                                                   date_of_consultation_admission))
-
+linelist_cleaned <- linelist_cleaned %>% 
+  mutate(obs_days = as.numeric(date_of_exit - date_of_consultation_admission))
 
 
 ## Factor (categorical) variables ----------------------------------------------
@@ -778,7 +782,8 @@ linelist_cleaned <- linelist_cleaned %>%
 #   mutate(patient_origin = case_when(
 #     patient_origin == "Valliages D"       ~ "Village D",
 #     patient_origin == "VillageD"          ~ "Village D",
-#     patient_origin == "Town C"            ~ "Village C"
+#     patient_origin == "Town C"            ~ "Village C",
+#     TRUE ~ as.character(patient_origin))
 #   ))
 
 
@@ -830,7 +835,7 @@ linelist_cleaned <- linelist_cleaned %>%
 linelist_cleaned <- linelist_cleaned %>%
   mutate(date_of_last_vaccination = ifelse(
     previously_vaccinated != "Yes", 
-    (date_of_last_vaccination), as.Date(NA)
+    date_of_last_vaccination, as.Date(NA)
   ))
 ```
   
@@ -927,6 +932,57 @@ obs_start <- as.Date(first_week)
 
 ```
 
+<!-- ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/// duplicates \\\
+--------------------------------------------------------------------------------
+
+This chunk removes duplicate cases based on case_number, sex and age_group. 
+(you can edit to use whichever unique identifiers you think relevant)
+
+There are two options for this. Option 1 simply keeps the first occurence of a 
+duplicated case. 
+Option 2 gives you the ability to create a TRUE/FALSE variable to flag rows that
+are duplicated - giving you more flexibility around browsing which ones to drop. 
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ -->
+
+```{r duplicates}
+
+## option 1: only keep the first occurence of duplicate case 
+
+linelist_cleaned <- linelist_cleaned %>% 
+  ## find duplicates based on case number, sex and age group 
+  ## only keep the first occurence 
+  distinct(case_number, sex, age_group, .keep_all = TRUE)
+
+
+# ## option 2: create flagging variables for duplicates (then use to browse)
+# 
+# linelist_cleaned <- linelist_cleaned %>% 
+#   ## choose which variables to use for finding unique rows 
+#   group_by(case_number, sex, age_group) %>% 
+#   mutate(
+#     ## get the number of times duplicate occurs 
+#     num_dupes = n(), 
+#     duped = if_else(num_dupes > 1 , TRUE, FALSE)
+#   )
+# 
+# ## browse duplicates based on flagging variables 
+# linelist_cleaned %>% 
+#   ## only keep rows that are duplicated
+#   filter(duped) %>% 
+#   ## arrange by variables of interest 
+#   arrange(case_number, sex, age_group) %>% 
+#   View()
+# 
+# ## filter duplicates to only keep the row with the earlier entry 
+# linelist_cleaned %>% 
+#   ## choose which variables to use for finding unique rows 
+#   group_by(case_number, sex, age_group) %>% 
+#   ## sort to have the earliest date by person first
+#   arrange(date_of_consultation_admission) %>% 
+#   ## only keep the earliest row 
+#   slice(1)
+```
 
 
 <!-- ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -938,7 +994,7 @@ This automatically names your file "linelist_cleaned_DATE", where DATE is the
 current date.
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ -->
 ```{r save_cleaned_data}
-# rio::export(linelist_cleaned, str_glue("linelist_cleaned_{Sys.Date()}.xlsx"))
+# rio::export(linelist_cleaned, here::here("Data", str_glue("linelist_cleaned_{Sys.Date()}.xlsx")))
 ```
 
 
@@ -1066,6 +1122,27 @@ This chunk creates an age/sex pyramid of your cases.
        )
 ```
 
+
+<!-- ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/// age_pyramid_months \\\
+--------------------------------------------------------------------------------
+
+This chunk creates an age/sex pyramid of your cases under 2 years of age, by 
+month groupings. Uncomment the below code to use
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ -->
+
+```{r age_pyramid_months, warning=FALSE}
+# ## plot age pyramid by month groups, for observations under 2 years
+# filter(linelist_cleaned, age_years < 2) %>%
+#   plot_age_pyramid(age_group = "age_group_mon",
+#                    split_by = "sex") +
+#                   # stack_by = "case_def") +
+#   labs(y = "Cases (n)", x = "Age group (months)") + # change axis  labels (nb. x/y flip)
+#   theme(legend.position = "bottom",     # move legend to bottom
+#         legend.title = element_blank(), # remove title
+#         text = element_text(size = 18)  # change text size
+#        )
+```
 
 
 `r fmt_count(linelist_cleaned, previously_vaccinated == "Yes")` reported
@@ -1225,11 +1302,12 @@ by age group. If you have no deaths reported, the table will not be useful.
 linelist_cleaned %>%
   filter(patient_facility_type == "Inpatient") %>%
   case_fatality_rate_df(deaths = DIED, group = age_group, mergeCI = TRUE, add_total = TRUE) %>%
+  ## fill in 0 where category levels not represented (to ensure all levels show)
   tidyr::complete(age_group, 
                   fill = list(deaths = 0, 
                               population = 0, 
                               cfr = 0, 
-                              ci = 0)) %>% # Ensure all levels are represented
+                              ci = 0)) %>% 
   rename("Age group" = age_group, 
          "Deaths" = deaths, 
          "Cases" = population, 
@@ -1479,7 +1557,7 @@ inc_week_7 <- incidence(linelist_cleaned$date_of_onset, interval = "Monday week"
 
 
 # plot your epicurve
-basic_curve <- plot(inc_week_7, show_cases = TRUE, border = "black", n_breaks = nrow(inc_week_7)) + 
+basic_curve <- plot(inc_week_7, show_cases = FALSE, border = "black", n_breaks = nrow(inc_week_7)) + 
   scale_y_continuous(expand = c(0, 0)) +  # set origin for axes
   # add labels to axes and below chart
   epicurve_labels +
@@ -1519,7 +1597,7 @@ inc_week_14 <- incidence(linelist_cleaned$date_of_onset, interval = "2 Monday we
 
 
 # plot your epicurve
-plot(inc_week_14, show_cases = TRUE, border = "black", n_breaks = nrow(inc_week_14)) + 
+plot(inc_week_14, show_cases = FALSE, border = "black", n_breaks = nrow(inc_week_14)) + 
   scale_y_continuous(expand = c(0,0)) +  # set origin for axes
   # add labels to axes and below chart
   epicurve_labels +
@@ -1571,7 +1649,7 @@ inc_week_7_sex_fac <- linelist_cleaned %>%
 
 
 
-plot(inc_week_7_sex_fac, show_cases = TRUE, border = "black", n_breaks = nrow(inc_week_7_sex_fac)) + 
+plot(inc_week_7_sex_fac, show_cases = FALSE, border = "black", n_breaks = nrow(inc_week_7_sex_fac)) + 
   scale_y_continuous(expand = c(0, 0)) +  # set origin for axes
   epicurve_labels +
   epicurve_theme
@@ -1591,7 +1669,7 @@ defined case definition variable.
 inc_week_7_casedef <- incidence(linelist_cleaned$date_of_onset, 
                                 interval = "Monday week", 
                                 groups = linelist_cleaned$case_def)
-plot(inc_week_7_casedef, show_cases = TRUE, border = "black", n_breaks = nrow(inc_week_7_casedef)) + 
+plot(inc_week_7_casedef, show_cases = FALSE, border = "black", n_breaks = nrow(inc_week_7_casedef)) + 
   scale_y_continuous(expand = c(0, 0)) +  # set origin for axes
   # add labels to axes and below chart
   epicurve_labels +
@@ -1615,7 +1693,7 @@ inc_week_7_vax <- with(linelist_cleaned,
                                  groups = previously_vaccinated)
                       )
 
-plot(inc_week_7_vax, show_cases = TRUE, border = "black", n_breaks = nrow(inc_week_7_vax)) + 
+plot(inc_week_7_vax, show_cases = FALSE, border = "black", n_breaks = nrow(inc_week_7_vax)) + 
   scale_y_continuous(expand = c(0,0)) +  # set origin for axes
   # add labels to axes and below chart
   epicurve_labels +
@@ -1813,6 +1891,7 @@ linelist_cleaned %>%
              col_total = TRUE,
              row_total = TRUE) %>% 
   select(-variable) %>%
+  rename("Week" = value) %>%
   rename_redundant("%" = proportion) %>%
   augment_redundant(" (n)" = " n$") %>%
   kable(digits = 1)
@@ -1917,7 +1996,7 @@ Consider facet wrapping by a larger unit if you have many regions (eg if you
 have patients from 10+ villages, you may want to show your tables by health
 zone)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ -->
-Attack rage per 10,000 population by region 
+Attack rate per 10,000 population by region 
 
 ```{r attack_rate_by_region, warning = FALSE}
 
@@ -2179,8 +2258,11 @@ ar <- mutate(ar,
                                          breakers = breakers))
 
 
+## define the last four weeks available in your dataset
+which_weeks <- tail(unique(cases$epiweek), n = 4)
+
 # go through each epiweek, fiter and plot the data
-for (week in unique(cases$epiweek)) {
+for (week in which_weeks) {
   this_ar <- filter(ar, epiweek == week)
   
   ## map 
