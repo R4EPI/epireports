@@ -6,7 +6,7 @@
 #' Will multiply the inverse chances of a cluster being selected, a household
 #' being selected within a cluster, and an individual being selected within a
 #' household.
-#' 
+#'
 #' As follows:
 #'
 #' ```
@@ -16,8 +16,8 @@
 #' ```
 #'
 #' In the case where both ignore_cluster and ignore_household are TRUE, this
-#' will simply be: 
-#' 
+#' will simply be:
+#'
 #' ```
 #' 1 * 1 * (individuals eligible in each household) / (individuals interviewed)
 #' ```
@@ -25,7 +25,7 @@
 #' @param x a data frame of survey data
 #'
 #' @param cl a data frame containing a list of clusters and the number of
-#'   households in each. 
+#'   households in each.
 #'
 #' @param eligible the column in `x` which specifies the number of people
 #'   eligible for being interviewed in that household. (e.g. the total number of
@@ -49,17 +49,17 @@
 #' @param ignore_cluster If TRUE (default), set the weight for clusters to be 1.
 #'   This assumes that your sample was taken in a way which is a close
 #'   approximation of a simple random sample. Ignores inputs from `cluster_cl`
-#'   as well as `cluster_x`. 
+#'   as well as `cluster_x`.
 #'
-#' @param ignore_household If TRUE (default), set the weight for households to 
+#' @param ignore_household If TRUE (default), set the weight for households to
 #'   be 1. This assumes that your sample of households was takenin a way which
 #'   is a close approximation of a simple random sample. Ignores inputs from
 #'   `household_cl` and `household_x`.
 #'
-#' @param surv_weight the name of the new column to store the weights. Defaults 
+#' @param surv_weight the name of the new column to store the weights. Defaults
 #'   to "surv_weight".
 #'
-#' @param surv_weight_ID the name of the new ID column to be created. Defaults 
+#' @param surv_weight_ID the name of the new ID column to be created. Defaults
 #'   to "surv_weight_ID"
 #'
 #' @author Alex Spina, Zhian N. Kamvar, Lukas Richter
@@ -96,8 +96,8 @@
 #'
 #' # add weights to a cluster sample
 #' # include weights for cluster, household and individual levels
-#' add_weights_cluster(x, cl = cl, 
-#'                     eligible = eligible_n, 
+#' add_weights_cluster(x, cl = cl,
+#'                     eligible = eligible_n,
 #'                     interviewed = surveyed_n,
 #'                     cluster_cl = cluster, household_cl = n_houses,
 #'                     cluster_x = cluster,  household_x = household_id,
@@ -107,8 +107,8 @@
 #' # add weights to a cluster sample
 #' # ignore weights for cluster and household level (set equal to 1)
 #' # only include weights at individual level
-#' add_weights_cluster(x, cl = cl, 
-#'                     eligible = eligible_n, 
+#' add_weights_cluster(x, cl = cl,
+#'                     eligible = eligible_n,
 #'                     interviewed = surveyed_n,
 #'                     cluster_cl = cluster, household_cl = n_houses,
 #'                     cluster_x = cluster,  household_x = household_id,
@@ -119,19 +119,85 @@ add_weights_cluster <- function(x, cl,
                                 cluster_x = NULL, cluster_cl = NULL,
                                 household_x = NULL, household_cl = NULL,
                                 ignore_cluster = TRUE, ignore_household = TRUE,
-                                surv_weight = "surv_weight", 
+                                surv_weight = "surv_weight",
                                 surv_weight_ID =  "surv_weight_ID") {
 
- 
+
 
   # define vars
-  clus_id_cl <- tidyselect::vars_select(colnames(cl), {{cluster_cl}})
-  hh_id_cl   <- tidyselect::vars_select(colnames(cl), {{household_cl}})
-  clus_id_x  <- tidyselect::vars_select(colnames(x),  {{cluster_x}})
-  hh_id_x    <- tidyselect::vars_select(colnames(x),  {{household_x}})
-  indiv_eli  <- tidyselect::vars_select(colnames(x),  {{eligible}})
-  indiv_surv <- tidyselect::vars_select(colnames(x),  {{interviewed}})
+  clus_id_cl <- tidyselect::vars_select(colnames(cl), {{cluster_cl}}, .strict = FALSE)
+  hh_id_cl   <- tidyselect::vars_select(colnames(cl), {{household_cl}}, .strict = FALSE)
+  clus_id_x  <- tidyselect::vars_select(colnames(x),  {{cluster_x}}, .strict = FALSE)
+  hh_id_x    <- tidyselect::vars_select(colnames(x),  {{household_x}}, .strict = FALSE)
+  indiv_eli  <- tidyselect::vars_select(colnames(x),  {{eligible}}, .strict = FALSE)
+  indiv_surv <- tidyselect::vars_select(colnames(x),  {{interviewed}}, .strict = FALSE)
 
+  ## checks (errors / warnings)
+
+  # check if variables are in datasets (spelling) - throws error
+
+  # for cluster dataset
+  if (length(clus_id_cl) == 0) {
+    # pull the environment from which this was called (i.e. the function)
+    cll   <- match.call()
+
+    # put the variable of interest in quotations
+    ppltn <- rlang::as_name(rlang::enquo(cluster_cl))
+    # throw error saying which variable not in which dataset
+    stop(glue::glue("{ppltn} is not one of the columns in {cll[['cl']]}, check spelling"))
+  }
+
+  if (length(hh_id_cl) == 0) {
+    cll   <- match.call()
+    ppltn <- rlang::as_name(rlang::enquo(household_cl))
+    stop(glue::glue("{ppltn} is not one of the columns in {cll[['cl']]}, check spelling"))
+  }
+
+  # for study dataset
+  if (length(clus_id_x) == 0) {
+    cll   <- match.call()
+    ppltn <- rlang::as_name(rlang::enquo(cluster_x))
+    stop(glue::glue("{ppltn} is not one of the columns in {cll[['x']]}, check spelling"))
+  }
+
+  if (length(hh_id_x) == 0) {
+    cll   <- match.call()
+    ppltn <- rlang::as_name(rlang::enquo(household_x))
+    stop(glue::glue("{ppltn} is not one of the columns in {cll[['x']]}, check spelling"))
+  }
+
+  if (length(indiv_eli) == 0) {
+    cll   <- match.call()
+    ppltn <- rlang::as_name(rlang::enquo(eligible))
+    stop(glue::glue("{ppltn} is not one of the columns in {cll[['x']]}, check spelling"))
+  }
+
+  if (length(indiv_surv) == 0) {
+    cll   <- match.call()
+    ppltn <- rlang::as_name(rlang::enquo(interviewed))
+    stop(glue::glue("{ppltn} is not one of the columns in {cll[['x']]}, check spelling"))
+  }
+
+
+  # check if there are duplicate cluster names (i.e. counted twice) - throws error
+  if (any(duplicated(cl[[clus_id_cl]])) {
+    cll   <- match.call()
+    stop(glue::glue("Cluster names are duplicated in {clus_id_cl} variable of {cll[['cl']]} dataset"))
+  }
+
+  # check how many cluster names in the study data match cluster counts data
+  non_matching_clusters <- !x[[clus_id_x]] %in% cl[[clus_id_cl]]
+
+  if (any(non_matching_clusters)) {
+    nm_cluster_names <- unique(x[[clus_id_x]][non_matching_clusters])
+    cll <- match.call()
+    warning(glue::glue("The following cluster names in the {clus_id_x} variable are not in the {cll[['cl']]} dataset: ",
+                       glue::glue_collapse(nm_cluster_names, sep = ",")))
+  }
+
+
+
+  ## start function
 
   if (ignore_cluster) {
     cluster_chance <- 1
@@ -194,4 +260,3 @@ add_weights_cluster <- function(x, cl,
   d
 
 }
-

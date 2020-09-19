@@ -7,12 +7,12 @@
 #'
 #' @param x a data frame of survey data
 #'
-#' @param p a data frame containing pouplation data for groups in `...`
+#' @param p a data frame containing population data for groups in `...`
 #'
 #' @param ... shared grouping columns across both `x` and `p`. These are used
-#'   to match the weights to the correct subset of the pouplation.
+#'   to match the weights to the correct subset of the population.
 #'
-#' @param population the column in `p` that defines the pouplation numbers
+#' @param population the column in `p` that defines the population numbers
 #'
 #' @param surv_weight the name of the new column to store the weights. Defaults to
 #'   "surv_weight".
@@ -54,16 +54,17 @@
 #' # weight based on age group and sex
 #' add_weights_strata(x, p = p, age_grp, sex, population = population)
 #'
-add_weights_strata <- function(x, p, ..., 
-                               population = population, 
-                               surv_weight = "surv_weight", 
+add_weights_strata <- function(x, p, ...,
+                               population = population,
+                               surv_weight = "surv_weight",
                                surv_weight_ID = "surv_weight_ID") {
 
+  ## define vars and throw error if not existant
   pop <- tidyselect::vars_select(names(p), {{population}}, .strict = FALSE)
   if (length(pop) == 0) {
     cll   <- match.call()
     ppltn <- rlang::as_name(rlang::enquo(population))
-    stop(glue::glue("{ppltn} is not one of the columns of {cll[['p']]}"))
+    stop(glue::glue("{ppltn} is not one of the columns of {cll[['p']]}, check spelling"))
   } else {
     population      <- rlang::ensym(pop)
   }

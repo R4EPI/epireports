@@ -100,3 +100,41 @@ test_that("households can be ignored", {
   expect_equal(res$wuzzlewozzle, no_hh)
 
 })
+
+
+
+# checking that the weight produced is correct
+# based on lecture from Manchester university
+# https://www.methods.manchester.ac.uk/themes/survey-and-statistical-methods/survey-weights/
+
+clusters <- data.frame(stringsAsFactors=FALSE,
+                             cluster = c(1:20),
+                             n_houses   = c(200, 250, rep(300, times = 18)))
+
+input_linelist <- data.frame(stringsAsFactors=FALSE,
+                             household_id = c(1:10),
+                             cluster = c(rep(1, times = 5),
+                                         rep(2, times = 5)),
+                             eligible_n = c(2, 3, 1, 4, 2, 2, 3, 1, 4, 3),
+                             surveyed_n = c(rep(1, times = 10)),
+                             manc_weight = c(800, 1200, 400, 1600, 800, 1000,
+                                             1500, 500, 2000, 1500)
+                            )
+
+
+test_that("weights calculated correctly", {
+
+  res <- add_weights_cluster(x = input_linelist, cl = clusters,
+                             cluster_x    = cluster,
+                             cluster_cl   = cluster,
+                             household_x  = household_id,
+                             household_cl = n_houses,
+                             eligible     = eligible_n,
+                             interviewed  = surveyed_n,
+                             ignore_cluster = FALSE,
+                             ignore_household = FALSE,
+                             surv_weight  = "wuzzlewozzle")
+
+  expect_equal(res$wuzzlewozzle, res$manc_weight)
+
+})
