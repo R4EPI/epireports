@@ -85,21 +85,21 @@ ggplot2::theme_set(theme_classic(base_size = 18))
 /// read_fake_data \\\
 --------------------------------------------------------------------------------
 To play with this template, you can create fake data based off data
-dictionary used for Dharma.
+dictionary used for Kobo.
 Comment out this chunk when you are using real data.
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ -->
 
 ```{r read_fake_data, warning = FALSE, message = FALSE}
 
 
-## generates MSF standard dictionary for Dharma 
+## generates MSF standard dictionary for Kobo 
 study_data_dict <- msf_dict_survey("Mortality")
 
 
 ## generates a fake dataset for use as an example in this template
 ## this dataset already has household and individual levels merged
 study_data_raw <- gen_data(dictionary = "Mortality",
-                           varnames   = "column_name",
+                           varnames   = "name",
                            numcases   = 1000)
 ```
 
@@ -108,26 +108,26 @@ study_data_raw <- gen_data(dictionary = "Mortality",
 You should load your data as a linelist, where each row is one person. 
 
 There are two options for reading data:
-- Your data is from Dharma: use read_DHARMA_data
-- Your data is NOT FROM Dharma and in Excel, CSV, or Stata format: 
-use read_nonDHARMA_data
+- Your data is from Kobo: use read_kobo_data
+- Your data is NOT FROM Kobo and in Excel, CSV, or Stata format: 
+use read_non_kobo_data
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ -->
 
 
 
 <!-- ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-/// read_DHARMA_data \\\
+/// read_kobo_data \\\
 --------------------------------------------------------------------------------
-This section is for data collected with Dharma.
+This section is for data collected with Kobo. 
 It uses the standardized MSF data dictionary.
 
-If you didn't use the standardized data dictionary, go to read_nonDHARMA_data.
+If you didn't use the standardized data dictionary, go to read_non_kobo_data.
 
 Generally, survey datasets will have two levels:
 One for household and one for individual (to combine see merge_data_levels).
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ -->
 
-```{r read_DHARMA_data, warning = FALSE, message = FALSE}
+```{r read_kobo_data, warning = FALSE, message = FALSE}
 
 ### Read in data ---------------------------------------------------------------
 
@@ -136,11 +136,11 @@ One for household and one for individual (to combine see merge_data_levels).
 
 ## read in household data sheet
 # study_data_hh <- rio::import(here::here("mortality_survey.xlsx"), 
-#                               which = "Level 0 Named", na = ".")
+#                               which = "mortality_survey_erb", na = "")
 
 ## read in individual level data sheet
 # study_data_indiv <- rio::import(here::here("mortality_survey.xlsx", 
-#                               which = "Level 1 Named", na = ".")
+#                               which = "r1", na = "")
 
 
 ## Excel file with password ----------------------------------------------------
@@ -150,23 +150,23 @@ One for household and one for individual (to combine see merge_data_levels).
 # library(excel.link)
 
 # study_data_hh <- xl.read.file(here::here("mortality_survey.xlsx"),
-#                              xl.sheet = "Level 0 Named",
+#                              xl.sheet = "mortality_survey_erb",
 #                              password = askpass::askpass(prompt = "please enter file password"))
 
 # study_data_indiv <- xl.read.file(here::here("mortality_survey.xlsx"),
-#                              xl.sheet = "Level 1 Named",
+#                              xl.sheet = "r1",
 #                              password = askpass::askpass(prompt = "please enter file password"))
 ```
 
 
 <!-- ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-/// read_nonDHARMA_data \\\
+/// read_non_kobo_data \\\
 --------------------------------------------------------------------------------
-This section is for data not from Dharma. 
-If you have already loaded data from Dharma, go to merge_data_levels
+This section is for data not from Kobo.  
+If you have already loaded data from Kobo, go to merge_data_levels
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ -->
 
-```{r read_nonDHIS_data, warning = FALSE, message = FALSE}
+```{r read_non_kobo_data, warning = FALSE, message = FALSE}
 
 ## Excel file ------------------------------------------------------------------
 ## to read in a specific sheet use "which"
@@ -200,41 +200,44 @@ these levels will need to be merged in to one dataset.
 
 This is done using a unique identifier for the household 
 (which has to be repeated for each row in the individuals dataset) 
-For a Dharma dataset this variable is "fact_0_id".
+For a Kobo dataset this variable is "_index" at the household level, which 
+matches the "_parent_index" at the individual level.
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ -->
 
 ```{r merge_data_levels}
 
-## make sure each individual has the ID 
-## (equivalent of excel drag downwards to fill blanks)
-# study_data_indiv <- study_data_indiv %>% fill(fact_0_id)
-
 ## join the individual and household data to form a complete data set
-#study_data_raw <- left_join(study_data_hh, study_data_indiv, by = "fact_0_id")
+#study_data_raw <- left_join(study_data_hh, study_data_indiv, by = c("_index" = "_parent_index"))
+
 ```
 
 
 
 <!-- ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-/// prep_DHARMA_data \\\
+/// prep_kobo_data \\\
 --------------------------------------------------------------------------------
 This section is to import your data dictionary and standardise variable names. 
 
-The Dharma data dictionary has variable names
-in the column_name column. Possible values for each variable are
-specified in choice_code and choice_name columns. 
-Code has the shortened value and Name has the full-text value.
+The Kobo data dictionary has variable names
+in the "name" column of the survey sheet. Possible values for each variable are
+specified in choices sheet. 
+In the choices tab, "name" has the shortened value and the "label::english" and 
+"label::french" columns have the appropriate long versions. 
+
+Using the msf_dict_survey function to import a Kobo dictionary excel file will 
+re-format this for you so it can be used easily to recode. 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ -->
 
 
-```{r prep_DHARMA_data}
+```{r prep_kobo_data}
 
 ## Data dictionary -------------------------------------------------------------
 
 
-## read in data dictionary
-# study_data_dict <- rio::import("mortality_survey.xlsx",
-#                                which = "Data Dictionary")
+## read in a kobo data dictionary
+## important to specify template is FALSE (otherwise you get the generic dict)
+# study_data_dict <- msf_dict_survey(name = here::here("mortality_survey_dict.xlsx"), 
+#                                    template = FALSE)
 
 ## look at the dictionary by uncommenting the line below
 # View(study_data_dict) 
@@ -247,19 +250,24 @@ Code has the shortened value and Name has the full-text value.
 ## make a copy of your orginal dataset and name it study_data_cleaned
 study_data_cleaned <- study_data_raw
 
+## Sometimes you want to rename specific variables
+## For example we want to add details to violance_natur_other
+## This is because otherwise it will be duplicated after we clean names below
+## The formula for this is rename(data, NEW_NAME = OLD_NAME). 
+## You can add multiple column name recodes by simply separating them with a comma
+study_data_cleaned <- rename(study_data_cleaned,
+                             violence_nature_other_details    =  violence_nature_other)
+
 ## define clean variable names using clean_labels from the epitrix package. 
 cleaned_colnames <- epitrix::clean_labels(colnames(study_data_cleaned))
 
 ## overwrite variable names with defined clean names
 colnames(study_data_cleaned) <- cleaned_colnames 
 
-## Some of the names outputed from Dharma are very long
-## In this example, we rename variables for "sex" and "age_in_years"
-## The formula for this is rename(data, NEW_NAME = OLD_NAME). 
+## create a unique identifier by combining indeces of the two levels 
+# study_data_cleaned <- study_data_cleaned %>% 
+#   mutate(uid = str_glue("{index}_{index_y}"))
 
-study_data_cleaned <- rename(study_data_cleaned, 
-                             sex          = q4_q6_sex,
-                             age_in_years = q155_q5_age_year)
 ```
 
 
@@ -277,7 +285,7 @@ from proportions.
 
 Below we show basic examples for reading data and entering counts - as well as 
 a more complex version using proportions to get the age/sex breakdown in 
-two seperate regions. (Useful if doing a stratified survey)
+two separate regions. (Useful if doing a stratified survey)
 
 Comment out the options you are not using.
 
@@ -285,7 +293,7 @@ Make sure that the groups fit those in your survey data!
 
 Age group proportions are from the OCBA population denominators tool v1. The
 proportions below are for sub-Saharan Africa in 2019. They are only an estimate!
-If you have more specific proportions, you can use them below.
+If you have more specific proportions/data, you can use them below.
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ -->
 
 
@@ -329,22 +337,22 @@ If you have more specific proportions, you can use them below.
 population_data_age_district_a <- gen_population(total_pop = 10000, # set total population 
   groups      = c("0-2", "3-14", "15-29", "30-44", "45+"), # set groups
   proportions = c(0.0340, 0.1811, 0.1380, 0.0808, 0.0661), # set proportions for each group
-  strata      = c("Male", "Female")) %>%           # stratify by gender
+  strata      = c("male", "female")) %>%           # stratify by gender
   rename(age_group  = groups,                      # rename columns (NEW NAME = OLD NAME)
          sex        = strata,
          population = n) %>% 
-  mutate(health_district = "District A")           # add a column to identify region 
+  mutate(health_district = "district_a")           # add a column to identify region 
 
 
 ## generate population data by age groups in years for district B
 population_data_age_district_b <- gen_population(total_pop = 10000, # set total population 
   groups      = c("0-2", "3-14", "15-29", "30-44", "45+"), # set groups
   proportions = c(0.0340, 0.1811, 0.1380, 0.0808, 0.0661), # set proportions for each group
-  strata      = c("Male", "Female")) %>%           # stratify by gender
+  strata      = c("male", "female")) %>%           # stratify by gender
   rename(age_group  = groups,                      # rename columns (NEW NAME = OLD NAME)
          sex        = strata,
          population = n) %>% 
-  mutate(health_district = "District B")           # add a column to identify region 
+  mutate(health_district = "district_b")           # add a column to identify region 
 
 
 
@@ -374,8 +382,11 @@ each cluster.
 
 ```{r cluster_counts}
 
-cluster_counts <- tibble(cluster = c("Village A", "Village B", "Village C", "Village D"), 
-                         households = c(700, 400, 600, 500))
+cluster_counts <- tibble(cluster = c("village_1", "village_2", "village_3", "village_4", 
+                                     "village_5", "village_6", "village_7", "village_8",
+                                     "village_9", "village_10"), 
+                         households = c(700, 400, 600, 500, 300, 
+                                        800, 700, 400, 500, 500))
 ```
 
 
@@ -404,13 +415,19 @@ summary(study_data_raw)
 
 ## view unique values contained in variables 
 ## you can run this for any column -- just replace the column name
-unique(study_data_raw$q4_q6_sex)
+unique(study_data_raw$sex)
 
 ## check for logical date inconsistencies 
 ## for example check deaths before births and return corresponding IDs
+## unique ID is generated in the prepare_kobo_data chunk (need to uncomment)
 study_data_raw %>% 
-  filter(q137_q35_died_date < q88_q33_born_date) %>% 
-  select("fact_0_id")
+  filter(death_date < birthday_date) %>% 
+  select("uid")
+
+## use the dfSummary function in combination with view
+## note that view is not capitalised with this package
+# summarytools::dfSummary(study_data_cleaned) %>%
+#   summarytools::view()
 ```
 
 
@@ -430,7 +447,7 @@ The chunks are:
 - factor_vars        -- helps clean factor variables
 - obvservation_time  -- calculates person-time based on start/end cause dates
 - remove_unused_data -- dropping unused rows/columns
-- survey_weights     -- claculating survey weights according to study design
+- survey_weights     -- calculating survey weights according to study design
 - survey_design      -- create a survey object for weighted analysis 
 
 You must adapt this section according to your data!
@@ -447,15 +464,16 @@ This chunk will help you set up and clean your date variables.
 
 ```{r standardise_dates}
 
-## DHARMA standard data --------------------------------------------------------
-## If you got your data from Dharma, use this portion of the code.
+## Kobo standard data --------------------------------------------------------
+## If you got your data from Kobo, use this portion of the code.
 ## If not, comment this section out and use the below.
 
 ## make sure all date variables are formatted as dates 
-DATEVARS <- filter(study_data_dict, data_element_valuetype == "DATE") %>% 
-  filter(column_name %in% names(study_data_cleaned)) %>% 
+DATEVARS <- study_data_dict %>% 
+  filter(type == "date") %>% 
+  filter(name %in% names(study_data_cleaned)) %>% 
   ## filter to match the column names of your data
-  pull(column_name) # select date vars
+  pull(name) # select date vars
 
 ## change to dates 
 ## use the guess_dates() function to make a first pass at date variables.
@@ -464,8 +482,8 @@ study_data_cleaned <- study_data_cleaned %>%
             error_tolerance = 0.5)
 
 
-## Non-DHARMA data -------------------------------------------------------------
-## Use this section if you did not have Dharma data. 
+## Non-Kobo data -------------------------------------------------------------
+## Use this section if you did not have Kobo data. 
 
 ## use the guess_dates() function to make a first pass at date variables.
 # study_data_cleaned <- study_data_cleaned %>%
@@ -491,27 +509,24 @@ study_data_cleaned <- study_data_cleaned %>%
 
 ## set specific unrealistic dates to NA
 # study_data_cleaned <- mutate(study_data_cleaned,
-#                              date_of_onset < as.Date("2017-11-01") ~ as.Date(NA), 
-#                              date_of_onset == as.Date("2081-01-01") ~ as.Date("2018-01-01"))
+#                              death_date < as.Date("2017-11-01") ~ as.Date(NA), 
+#                              death_date == as.Date("2081-01-01") ~ as.Date("2018-01-01"))
 
 ## set inappropriate dates to NA based on rules 
 ## e.g. arrivals before start, departures departures after end
 # study_data_cleaned <- study_data_cleaned %>%
-#   mutate(q114_q16_date_arrival_camp = ifelse(q114_q16_date_arrival_camp < recall_start, 
+#   mutate(arrived_date = ifelse(arrived_date < recall_start, 
 #                                              as.Date(NA), 
-#                                              q114_q16_date_arrival_camp),
-#          q41_q25_hh_arrive_date = ifelse(q41_q25_hh_arrive_date < recall_start, 
-#                                          as.Date(NA),  
-#                                          q41_q25_hh_arrive_date),
-#          q88_q33_born_date = ifelse(q88_q33_born_date < recall_start, 
+#                                              arrived_date),
+#          birthday_date = ifelse(birthday_date < recall_start, 
 #                                     as.Date(NA),
-#                                     q88_q33_born_date),
-#          q45_q29_hh_leave_date = ifelse(q45_q29_hh_leave_date > recall_end, 
+#                                     birthday_date),
+#          left_date = ifelse(left_date > recall_end, 
 #                                         as.Date(NA),
-#                                         q45_q29_hh_leave_date),
-#          q137_q35_died_date = ifelse(q137_q35_died_date > recall_end,
+#                                         left_date),
+#          death_date = ifelse(death_date > recall_end,
 #                                      as.Date(NA),
-#                                      q137_q35_died_date)
+#                                      death_date)
 #          )
 ```
 
@@ -532,19 +547,24 @@ This chunk will help you set up your age group variable.
 
 ## make sure age is an integer 
 study_data_cleaned <- study_data_cleaned %>% 
-  mutate(age_in_years = as.integer(age_in_years))
+  mutate(age_years = as.integer(age_years))
 
 ## create an age group variable by specifying categorical breaks (of years)
 study_data_cleaned <- study_data_cleaned %>% 
-  mutate(age_group = age_categories(age_in_years, 
+  mutate(age_group = age_categories(age_years, 
                                     breakers = c(0, 3, 15, 30, 45)
                                     ))
 
 ## create age group variable for under 2 years based on months
 study_data_cleaned <- study_data_cleaned %>% 
-  mutate(age_group_mon = age_categories(study_data_cleaned$q156_q3_age_month, 
+  mutate(age_group_mon = if_else(
+    ## if months <= 24 then calculated age groups 
+    age_months_calc <= 24, 
+    age_categories(study_data_cleaned$age_months_calc, 
                                         breakers = c(0, 6, 9, 12, 24), 
-                                        ceiling = TRUE))
+                                        ceiling = TRUE), 
+    ## otherwise set new variable to missing
+    factor(NA)))
 
 
 ## alternatively, create an age group variable specify a sequence
@@ -560,7 +580,9 @@ study_data_cleaned <- study_data_cleaned %>%
 
 
 ## to combine different age categories use the following function 
-## this prioritises the smaller unit, i.e. if given months and years, will return months first
+## this prioritises the smaller unit, meaning:
+## it will order your age_category from smallest to largest unit 
+## i.e. days first then months then years (depending on which are given)
 study_data_cleaned <- group_age_categories(study_data_cleaned, 
                                            years  = age_group,
                                            months = age_group_mon)
@@ -580,35 +602,59 @@ This chunk will help you clean factor variables.
 ## Change a yes/no variable in to TRUE/FALSE
 ## create a new variable called consent 
 ## where the old one is yes place TRUE in the new one
+## (this could also be done with the if_else or case_when function - 
+## but this option is shorter)
 study_data_cleaned <- study_data_cleaned %>% 
-  mutate(consent = q49_cq3 == "Yes")
-
+  mutate(consent = consent == "yes")
 
 
 ## Change a yes/no variable in to TRUE/FALSE
 ## create a new variable called died 
 ## where the old one is yes place TRUE in the new one
 study_data_cleaned <- study_data_cleaned %>% 
-  mutate(died = q136_q34_died == "Yes")
+  mutate(died = died == "yes")
+
+
+## Recode character variables
+## This step shows how to fix misspellings in the geographic region variable.
+## Ideally, you want these values to match and population data!
+# study_data_cleaned <- study_data_cleaned %>%
+#   mutate(village_name = case_when(
+#     village_name == "Valliages 1"       ~ "village 1",
+#     village_name == "Village1"          ~ "village 1",
+#     village_name == "Town 3"            ~ "village 3"
+#     village_name == "Town3"             ~ "village 3",
+#     TRUE ~ as.character(village_name))
+#   ))
+
+
+## create a character variable based off groups of a different variable 
+study_data_cleaned <- study_data_cleaned %>% 
+  mutate(health_district = case_when(
+    cluster_number %in% c(1:5) ~ "district_a", 
+    TRUE ~ "district_b"
+  ))
+
 
 ## Set the levels of a factor 
 study_data_cleaned <- study_data_cleaned %>%
-  mutate(cause_of_death = factor(q138_q36_died_cause,
-                                 levels = c("Malaria/fever", "Diarrhoea", "Respiratory",
-                                            "Trauma/accident", "Pregnancy-related", 
-                                            "Violence", "Outbreak disease (specify)", 
-                                            "Malnutrition", "Unknown", "Other (specify)")))
+  mutate(cause = factor(cause,
+                        levels = c("malaria_fever", "diarrhoea", 
+                                   "respiratory_infection", "trauma_accident", 
+                                   "during_pregnancy", "during_after_delivery",
+                                   "violence", "dont_know", "other")))
+
 ## explicitly replace NA of a factor
 study_data_cleaned <- study_data_cleaned %>%
-  mutate(cause_of_death = fct_explicit_na(cause_of_death, na_level = "Not Applicable"))
+  mutate(cause = fct_explicit_na(cause, na_level = "Not Applicable"))
 
-
-## replace missing values in Dharma multi-choice questions to "" so that we can
+## if you had a multi-choice question and the missing values were given as a "."
+## replace missing values in multi-choice questions to "" so that we can
 ## filter them out later.
-study_data_cleaned <- study_data_cleaned %>%
-  mutate_at(.vars = vars(contains("symptom")), # all variables that contain the word "symptom"
-            .funs = ~fct_explicit_na(as.character(.), "") # replace missing values with "" 
-           ) 
+# study_data_cleaned <- study_data_cleaned %>%
+#   mutate_at(.vars = vars(contains("violence")), # all variables that contain the word "violence"
+#             .funs = ~fct_explicit_na(as.character(.), "") # replace missing values with "" 
+#            ) 
 ```
 
 
@@ -635,12 +681,12 @@ if applicable (e.g. departures, deaths)
 
 ## Find start and end dates/causes ---------------------------------------------
 
+## create new variables for start and end dates/causes
 study_data_cleaned <- study_data_cleaned %>%
   ## choose earliest date entered in survey
   ## from births, household arrivals, and camp arrivals 
-  find_start_date("q88_q33_born_date",
-                  "q41_q25_hh_arrive_date",
-                  "q114_q16_date_arrival_camp",
+  find_start_date("birthday_date",
+                  "arrived_date",
                   period_start = "recall_start",
                   period_end   = "recall_end",
                   datecol      = "startdate",
@@ -648,17 +694,17 @@ study_data_cleaned <- study_data_cleaned %>%
                  ) %>%
   ## choose earliest date entered in survey
   ## from camp departures, death and end of the study
-  find_end_date("q45_q29_hh_leave_date",
-                "q137_q35_died_date",
+  find_end_date("left_date",
+                "death_date",
                 period_start = "recall_start",
                 period_end   = "recall_end",
                 datecol      = "enddate",
                 datereason   = "endcause" 
                ) %>%
   ## label those that were present at the start/end (except births/deaths)
-  mutate(startcause = if_else(startdate == recall_start & startcause != "q88_q33_born_date",
+  mutate(startcause = if_else(startdate == recall_start & startcause != "birthday_date",
                               "Present at start", startcause)) %>%
-  mutate(endcause = if_else(enddate == recall_end & endcause != "q137_q35_died_date", 
+  mutate(endcause = if_else(enddate == recall_end & endcause != "death_date", 
                             "Present at end", endcause))
 
 ## fix factor levels -----------------------------------------------------------
@@ -666,24 +712,23 @@ study_data_cleaned <- study_data_cleaned %>%
 ## make sure there are the appropriate levels (names)
 study_data_cleaned$startcause <- fct_recode(study_data_cleaned$startcause,
                                             "Present at start" = "Present at start",
-                                            "Born" = "q88_q33_born_date",
-                                            "Other arrival" = "q114_q16_date_arrival_camp",
-                                            "Other arrival" = "q41_q25_hh_arrive_date"
+                                            "Born" = "birthday_date",
+                                            "Other arrival" = "arrived_date"
                                            )
 
 ## make sure there are the appropriate levels (names)
 study_data_cleaned$endcause <- fct_recode(study_data_cleaned$endcause,
                                           "Present at end" = "Present at end",
-                                          "Died" = "q137_q35_died_date",
-                                          "Other departure" = "q45_q29_hh_leave_date")
+                                          "Died" = "death_date",
+                                          "Other departure" = "left_date")
 
 ## month of death --------------------------------------------------------------
 
 ## create a variable for month of end (used for deaths by month)
-study_data_cleaned <- mutate(study_data_cleaned, 
-                             endmonth = factor(months(enddate), 
-                                               levels = month.name)
-                            )
+study_data_cleaned <- study_data_cleaned %>% 
+  mutate(endmonth = factor(months(enddate), 
+                           levels = month.name)
+         )
 
 
 ## time sequence of events -----------------------------------------------------
@@ -693,7 +738,7 @@ study_data_cleaned <- mutate(study_data_cleaned,
 check_dates <- assert_positive_timespan(study_data_cleaned, startdate, enddate)
 
 ## return the unique identifiers which have negative observation time 
-# check_dates$fact_0_id
+# check_dates$uid
 
 ## observation time ------------------------------------------------------------
 
@@ -713,7 +758,7 @@ You can also use this section to create temporary datasets so you can review
 specific variables or rows.
 
 You may want to drop rows with missing IDs (i.e. blank rows from excel) 
-simply add a !is.na(fact_0_id) if using a dharma dataset.
+simply add a !is.na(uid) if using a Kobo dataset.
 You will also want to drop those rows where both the start and enddate occur
 outside of your recall period! 
 If your check_dates shows rows with negative obs time - 
@@ -725,9 +770,10 @@ It is important that you drop observations before adding survey weights!
 ```{r remove_unused_data}
 ## Drop unused rows  -----------------------------------------------------------
 
-## store the cases that you drop so you can describe them (e.g. non-consenting)
+## store the cases that you drop so you can describe them (e.g. non-consenting 
+## or wrong village/cluster)
 dropped <- study_data_cleaned %>% 
-  filter(!consent | is.na(startdate) | is.na(enddate))
+  filter(!consent | is.na(startdate) | is.na(enddate) | village_name == "other")
 ## use the dropped cases to remove the unused rows from the survey data set  
 study_data_cleaned <- anti_join(study_data_cleaned, dropped, by = names(dropped))
 
@@ -742,6 +788,56 @@ study_data_cleaned <- anti_join(study_data_cleaned, dropped, by = names(dropped)
 
 # study_data_reduced <- select(study_data_cleaned, c(1:3, "age_years", "sex")
 ```
+
+
+
+<!-- ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/// duplicates \\\
+--------------------------------------------------------------------------------
+This chunk removes duplicate cases based on case_number, sex and age_group. 
+(you can edit to use whichever unique identifiers you think relevant)
+There are two options for this. Option 1 simply keeps the first occurrence of a 
+duplicated case. 
+Option 2 gives you the ability to create a TRUE/FALSE variable to flag rows that
+are duplicated - giving you more flexibility around browsing which ones to drop. 
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ -->
+
+```{r duplicates}
+## option 1: only keep the first occurrence of duplicate case 
+study_data_cleaned <- study_data_cleaned %>% 
+  ## find duplicates based on case number, sex and age group 
+  ## only keep the first occurrence 
+  distinct(uid, sex, age_group, .keep_all = TRUE)
+  
+# ## option 2: create flagging variables for duplicates (then use to browse)
+# 
+# study_data_cleaned <- study_data_cleaned %>% 
+#   ## choose which variables to use for finding unique rows 
+#   group_by(uid, sex, age_group) %>% 
+#   mutate(
+#     ## get the number of times duplicate occurs 
+#     num_dupes = n(), 
+#     duped = if_else(num_dupes > 1 , TRUE, FALSE)
+#   )
+# 
+# ## browse duplicates based on flagging variables 
+# study_data_cleaned %>% 
+#   ## only keep rows that are duplicated
+#   filter(duped) %>% 
+#   ## arrange by variables of interest 
+#   arrange(uid, sex, age_group) %>% 
+#   View()
+# 
+# ## filter duplicates to only keep the row with the earlier entry 
+# study_data_cleaned %>% 
+#   ## choose which variables to use for finding unique rows 
+#   group_by(uid, sex, age_group) %>% 
+#   ## sort to have the earliest date by person first
+#   arrange(as.Date(submission_time)) %>% 
+#   ## only keep the earliest row 
+#   slice(1)
+```
+
 
 
 
@@ -775,19 +871,20 @@ study_data_cleaned <- add_weights_strata(x = study_data_cleaned,
 
 ## cluster ---------------------------------------------------------------------
 
-## merge village and household to create a unique household ID 
+## get the number of people of individuals interviewed per household 
+## adds a variable with counts of the household (parent) index variable
 study_data_cleaned <- study_data_cleaned %>% 
-  mutate(hh_id = str_glue("{village}_{q65_iq4}"))
+  add_count(index, name = "interviewed")
 
 
 ## create cluster weights 
 study_data_cleaned <- add_weights_cluster(x = study_data_cleaned, 
                                           cl = cluster_counts, 
-                                          eligible = eligible, 
+                                          eligible = member_number, 
                                           interviewed = interviewed, 
-                                          cluster_x = village, 
+                                          cluster_x = village_name, 
                                           cluster_cl = cluster, 
-                                          household_x = hh_id, 
+                                          household_x = index, 
                                           household_cl = households, 
                                           surv_weight = "surv_weight_cluster", 
                                           surv_weight_ID = "surv_weight_ID_cluster", 
@@ -845,7 +942,7 @@ survey_design_strata <- study_data_cleaned %>%
 ## cluster ---------------------------------------------------------------------
 
 survey_design_cluster <- study_data_cleaned %>% 
-  as_survey_design(ids = village, # 1 for no cluster ids 
+  as_survey_design(ids = village_name, # cluster ids 
                    weights = surv_weight_cluster, # weight variable created above 
                    strata = NULL # sampling was simple (no strata)
                   )
@@ -853,9 +950,9 @@ survey_design_cluster <- study_data_cleaned %>%
 ## stratified cluster ----------------------------------------------------------
 
 survey_design <- study_data_cleaned %>% 
-  as_survey_design(ids = village, # 1 for no cluster ids 
+  as_survey_design(ids = village_name, # cluster ids 
                    weights = surv_weight_cluster_strata, # weight variable created above 
-                   strata = health_district # sampling was simple (no strata)
+                   strata = health_district # sampling was stratified by district
                   )
 ```
 
@@ -871,7 +968,7 @@ current date.
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ -->
 
 ```{r save_cleaned_data, eval = FALSE}
-rio::export(study_data_cleaned, str_glue("study_data_cleaned_{Sys.Date()}.xlsx"))
+rio::export(study_data_cleaned, here::here("Data", str_glue("study_data_cleaned_{Sys.Date()}.xlsx")))
 ```
 
 
@@ -902,13 +999,13 @@ num_clus <- study_data_cleaned %>%
 ## get counts of number households 
 num_hh <- study_data_cleaned %>% 
   ## get unique houses by cluster
-  distinct(cluster_number, q65_iq4) %>% 
+  distinct(cluster_number, household_number) %>% 
   ## get number of rounds (count how many unique)
   nrow()
 ```
 
 
-We included `r num_hh` households accross `r num_clus` clusters in this survey analysis. 
+We included `r num_hh` households across `r num_clus` clusters in this survey analysis. 
 
 
 Among the `r nrow(dropped)` individuals excluded from the survey analysis, 
@@ -924,19 +1021,15 @@ for lack of consent. The reasons for no consent are shown below.
 
 This chunk will create a table of dropped individuals by reason for no consent. 
 
-Note that these reasons are spread over multiple columns, thus the proportion
-needs to be of the total and missings need to be dropped. 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~-->
 
 ```{r consent_reasons}
 ## using the dataset with dropped individuals 
 dropped %>% 
-  ## get counts multiple variables with reasons for no consent 
-  ## make the proportion of the total, including the missings for each
-  tab_linelist(starts_with("q53_cq4a_"),
+  ## get counts of reasons for no consent 
+  ## make the proportion of the total, including the missings
+  tab_linelist(no_consent_reason,
                prop_total = TRUE, na.rm = FALSE) %>% 
-  ## remove missings from the table 
-  filter(!value == "Missing") %>% 
   ## drop variable column and rename others
   select("Reason" = value, 
          "n" = n, 
@@ -961,7 +1054,7 @@ From these create medians and standard deviations.
 ## get counts of the number of households per cluster
 clustersize <- study_data_cleaned %>% 
   ## trim data to only unique households within each cluster
-  distinct(cluster_number, q65_iq4) %>%
+  distinct(cluster_number, household_number) %>%
   ## count the number of households within each cluster
   count(cluster_number) %>% 
   pull(n)
@@ -976,7 +1069,7 @@ clusterrange <- str_c(range(clustersize), collapse = "--")
 ## get counts of children per household 
 ## do this by cluster as household IDs are only unique within clusters
 hhsize <- study_data_cleaned %>% 
-  count(cluster_number, q65_iq4) %>%
+  count(cluster_number, household_number) %>%
   pull(n) 
 
 ## get median number of children per household
@@ -1014,7 +1107,7 @@ You could similarly repeat this looking at distributions by sex.
 Note that these p-values are just indicative, and a descriptive discussion (or
 visualisation with age-pyramids below) of the distributions in your study sample 
 compared to the source population is more
-important that the binomial test itself. This is because increasing sample size
+important than the binomial test itself. This is because increasing sample size
 will more often than not lead to differences that may be irrelevant after weighting
 your data. 
 
@@ -1029,7 +1122,8 @@ ag <- tab_linelist(study_data_cleaned, "age_group") %>%
   mutate(age_group = fct_inorder(age_group))
 
 ## counts and props of the source population
-propcount <- group_by(population_data_age, age_group) %>%
+propcount <- population_data_age %>% 
+  group_by(age_group) %>%
     tally(population) %>%
     mutate(proportion = n / sum(n))
 
@@ -1060,9 +1154,9 @@ left_join(ag, propcount, by = "age_group", suffix = c("", "_pop")) %>%
   select(
     "Age group" = age_group,
     "Study population (n)" = n,
-    "%" = proportion,
+    "Study population (%)" = proportion,
     "Source population (n)" = n_pop,
-    "%" = proportion_pop,
+    "Source population (%)" = proportion_pop,
     "P-value" = p.value
   ) %>%
   kable(digits = 1)
@@ -1084,12 +1178,12 @@ It also pulls the age group with the highest sex ratio.
 
 ```{r median_age_sex_ratios}
 ## compute the median age 
-medage <- median(study_data_cleaned$age_in_years)
+medage <- median(study_data_cleaned$age_years)
 ## paste the lower and uper quartile together
 iqr <- str_c(  # basically copy paste together the following
   ## calculate the 25% and 75% of distribution, with missings removed
   quantile(     
-    study_data_cleaned$age_in_years, 
+    study_data_cleaned$age_years, 
     probs = c(0.25, 0.75), 
     na.rm = TRUE), 
   ## between lower and upper place an en-dash
@@ -1100,14 +1194,14 @@ iqr <- str_c(  # basically copy paste together the following
 sex_ratio <- study_data_cleaned %>% 
   count(sex) %>% 
   spread(sex, n) %>%
-  mutate(ratio = round(Male/Female, digits = 1)) %>%
+  mutate(ratio = round(male/female, digits = 1)) %>%
   pull(ratio)
 
 ## compute sex ratios by age group 
 sex_ratio_age <- study_data_cleaned %>% 
   count(age_group, sex) %>% 
   spread(sex, n) %>%
-  mutate(ratio = round(Male/Female, digits = 1)) %>%
+  mutate(ratio = round(male/female, digits = 1)) %>%
   select(age_group, ratio)
 
 ## sort table by ascending ratio then select the lowest (first)
@@ -1130,13 +1224,13 @@ it will then pull the age group with the highest proportion of pregnant women.
 
 pregnant_women_in_data <- study_data_cleaned %>% 
   ## filter for only women in the data
-  filter(sex == "Female") %>%
-  ## tabulate age group, stratifiying by pregnancy status
-  tab_linelist(age_group, strata = q152_q7_pregnant) %>%
+  filter(sex == "female") %>%
+  ## tabulate age group, stratifying by pregnancy status
+  tab_linelist(age_group, strata = pregnant) %>%
   ## select and rename the variables we need
   select(age_group  = "value",
-         n          = "Yes n",
-         proportion = "Yes proportion") %>%
+         n          = "yes n",
+         proportion = "yes proportion") %>%
   ## arrange proportions in descending order
   arrange(desc(proportion)) %>%
   ## grab the first row
@@ -1146,19 +1240,19 @@ pregnant_women_in_data <- study_data_cleaned %>%
 
 
 Among the `r nrow(study_data_cleaned)` surveyed individuals, there were 
-`r fmt_count(study_data_cleaned, sex == "Female")` females and 
-`r fmt_count(study_data_cleaned, sex == "Male")` males (unweighted). The male to
+`r fmt_count(study_data_cleaned, sex == "female")` females and 
+`r fmt_count(study_data_cleaned, sex == "male")` males (unweighted). The male to
 female ratio was `r sex_ratio` in the surveyed population. The lowest male to
 female ratio was `r min_sex_ratio_age$ratio` in the 
 `r min_sex_ratio_age$age_group` year age group.
 The median age of surveyed individuals was `r medage` years (Q1-Q3 of `r iqr`
 years). Children under five years of age made up 
-`r fmt_count(study_data_cleaned, age_in_years < 5)`of the surveyed individuals.
+`r fmt_count(study_data_cleaned, age_years < 5)`of the surveyed individuals.
 The highest number of surveyed indivduals (unweighted) were in the 
 `r table(study_data_cleaned$age_group) %>% which.max() %>% names()`
 year age group.
 The number of surveyed women who were pregnant was 
-`r fmt_count(study_data_cleaned, sex == "Female" & q152_q7_pregnant == "Yes")`. 
+`r fmt_count(study_data_cleaned, sex == "female" & pregnant == "yes")`. 
 The highest proportion of pregnant women was among the 
 `r pregnant_women_in_data$age_group` year age group, at 
 `r round(pregnant_women_in_data$proportion, 1)`%.
@@ -1185,10 +1279,10 @@ tab_linelist(study_data_cleaned, age_group,
              prop_total = TRUE) %>%
   ## select and rename column names appropriately
   select("Age"              = "value",
-         "Female cases (n)" = "Female n",
-         "%"                = "Female proportion",
-         "Male cases (n)"   = "Male n",
-         "%"                = "Male proportion",
+         "Female cases (n)" = "female n",
+         "Female cases (%)" = "female proportion",
+         "Male cases (n)"   = "male n",
+         "Male cases (%)"   = "male proportion",
          "Total") %>%
   kable(digits = 1)
 ```
@@ -1218,10 +1312,10 @@ tab_linelist(study_data_cleaned, age_category,
              prop_total = TRUE) %>%
   ## select and rename column names appropriately
   select("Age"              = "value",
-         "Female cases (n)" = "Female n",
-         "%"                = "Female proportion",
-         "Male cases (n)"   = "Male n",
-         "%"                = "Male proportion",
+         "Female cases (n)" = "female n",
+         "Female cases (%)" = "female proportion",
+         "Male cases (n)"   = "male n",
+         "Male cases (%)"   = "male proportion",
          "Total") %>%
   kable(digits = 1)
 ```
@@ -1274,7 +1368,8 @@ plot_age_pyramid(study_data_cleaned,
                  age_group = "age_group", 
                  split_by = "sex",
                  stack_by = "health_district",
-                 proportion = TRUE) + 
+                 proportion = TRUE, 
+                 pal = c("red", "blue")) + 
   labs(y = "Proportion", x = "Age group (years)") +                 # change axis labels
   theme(legend.position = "bottom",     # move legend to bottom
         legend.title = element_blank(), # remove title
@@ -1322,7 +1417,7 @@ The below chunk calculate values that are displayed inline
 This will calculate weighted counts and proportions of deaths as well as 
 the mortality per 10,000 person-days using the survey_design object. 
 
-Note the posibility of negative confidence intervals if there are low counts
+Note the possibility of negative confidence intervals if there are low counts
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ -->
 
 ```{r CMR, warning = FALSE, message = FALSE}
@@ -1334,6 +1429,9 @@ death_props <- tab_survey(survey_design, died, deff = TRUE, keep = "TRUE")
 CMR <- survey_design %>% 
   ## survey ratio used to account for observation time 
   summarize(mortality = survey_ratio(as.numeric(died) * 10000, obstime, vartype = "ci")) %>% 
+  ## if negative CIs set to zero
+  mutate(mortality_low = if_else(mortality_low < 0, 0, mortality_low), 
+         mortality_upp = if_else(mortality_upp < 0, 0, mortality_upp)) %>% 
   ## merge confidence intervals for mortality in to one column (do not change to percent)
   unite_ci("Mortality", starts_with("mortality"), m100 = FALSE, percent = FALSE) %>%
   pull("Mortality")
@@ -1358,7 +1456,7 @@ This will calculate weighted counts and proportions of deaths as well as
 the mortality per 10,000 person-days using the survey_design object, stratified
 by health district. 
 
-Note the posibility of negative confidence intervals if there are low counts
+Note the possibility of negative confidence intervals if there are low counts
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ -->
 
 
@@ -1377,6 +1475,9 @@ CMR_strat <- survey_design %>%
   group_by(health_district) %>% 
   ## survey ratio used to account for observation time 
   summarize(mortality = survey_ratio(as.numeric(died) * 10000, obstime, vartype = "ci")) %>% 
+  ## if negative CIs set to zero
+  mutate(mortality_low = if_else(mortality_low < 0, 0, mortality_low), 
+         mortality_upp = if_else(mortality_upp < 0, 0, mortality_upp))
   ## merge confidence intervals for mortality in to one column (do not change to percent)
   unite_ci("Mortality", starts_with("mortality"), m100 = FALSE, percent = FALSE, digits = 1)
 
@@ -1385,19 +1486,19 @@ CMR_strat <- survey_design %>%
 
 
 In District A the weighted number of deaths was 
-`r death_props_strat %>% pull("District A n")`, 
+`r death_props_strat %>% pull("district_a n")`, 
 which gives a weighted proportion of 
-`r death_props_strat %>% pull("District A ci")`, and a design effect of
-`r death_props_strat %>% pull("District A deff") %>% round(digits = 3)`.  
+`r death_props_strat %>% pull("district_a ci")`, and a design effect of
+`r death_props_strat %>% pull("district_a deff") %>% round(digits = 3)`.  
 In comparison, the weighted number of deaths in District B was
-`r death_props_strat %>% pull("District B n")`, 
+`r death_props_strat %>% pull("district_b n")`, 
 the weighted proportion was 
-`r death_props_strat %>% pull("District B ci")` and the design effect was 
-`r death_props_strat %>% pull("District B deff") %>% round(digits = 3)`.  
+`r death_props_strat %>% pull("district_b ci")` and the design effect was 
+`r death_props_strat %>% pull("district_b deff") %>% round(digits = 3)`.  
 The crude mortality rate in District A was 
-`r CMR_strat %>% filter(health_district == "District A") %>% pull(Mortality)`
+`r CMR_strat %>% filter(health_district == "district_a") %>% pull(Mortality)`
 deaths per 10000 person-days and in District B was 
-`r CMR_strat %>% filter(health_district == "District B") %>% pull(Mortality)`
+`r CMR_strat %>% filter(health_district == "district_b") %>% pull(Mortality)`
 
 
 
@@ -1412,7 +1513,7 @@ using the survey_design object.
 
 This makes a bar plot with whiskers for CIs. 
 
-Note the posibility of negative confidence intervals if there are low counts; 
+Note the possibility of negative confidence intervals if there are low counts; 
 and that those negatives are set to zero. 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ -->
 
@@ -1463,24 +1564,27 @@ as if no deaths or recoded to zero (impossible to have negative deaths).
 ## weighted counts and proportions by cause of death 
 cause_of_death_prop <- survey_design %>% 
   filter(died) %>%  # proportions only among those who died
-  tab_survey(cause_of_death) %>%
-  select(cause_of_death = value, n, ci) %>%
-  mutate(cause_of_death = fct_inorder(cause_of_death))
+  tab_survey(cause) %>%
+  select(cause = value, n, ci) %>%
+  mutate(cause = fct_inorder(cause))
 
 ## weighted cause-specific mortality ratios
 cause_of_death_mort <- survey_design %>% 
   filter(died) %>%  # proportions only among those who died
-  group_by(cause_of_death) %>% 
-  summarize(mortality = survey_ratio(as.numeric(died) * 10000, obstime, vartype = "ci")) 
+  group_by(cause) %>% 
+  summarize(mortality = survey_ratio(as.numeric(died) * 10000, obstime, vartype = "ci")) %>% 
+  ## if negative CIs set to zero
+  mutate(mortality_low = if_else(mortality_low < 0, 0, mortality_low), 
+         mortality_upp = if_else(mortality_upp < 0, 0, mortality_upp))
 
 ## Join the counts, props and mortality ratios together
-dplyr::left_join(cause_of_death_prop, cause_of_death_mort, by = "cause_of_death") %>% 
+dplyr::left_join(cause_of_death_prop, cause_of_death_mort, by = "cause") %>% 
   ## merge confidence intervals for mortality in to one column 
   ## (do not change to percent)
   unite_ci("Mortality per 10,000 persons/day (95% CI)", starts_with("mortality"),
            m100 = FALSE, percent = FALSE) %>%
-  filter(cause_of_death != "Not Applicable") %>%
-  rename("Cause of death" = cause_of_death,
+  filter(cause != "Not Applicable") %>%
+  rename("Cause of death" = cause,
          "Deaths (n)" = n,
          "% (95% CI)" = ci
         ) %>% 
@@ -1506,7 +1610,7 @@ as if no deaths or recoded to zero (impossible to have negative deaths).
 
 survey_design %>% 
   filter(died) %>%  # proportions only among those who died
-  tab_survey(cause_of_death, strata = health_district, col_total = TRUE) %>%
+  tab_survey(cause, strata = health_district, col_total = TRUE) %>%
   filter(value != "Not Applicable") %>%
   select(-variable) %>%
   rename("Cause of death" = value) %>%
@@ -1536,16 +1640,19 @@ as if no deaths or recoded to zero (impossible to have negative deaths).
 
 survey_design %>% 
   filter(died) %>%  # proportions only among those who died
-  group_by(cause_of_death, health_district) %>% 
+  group_by(cause, health_district) %>% 
   summarize(mortality = survey_ratio(as.numeric(died) * 10000, obstime, vartype = "ci")) %>% 
+  ## if negative CIs set to zero
+  mutate(mortality_low = if_else(mortality_low < 0, 0, mortality_low), 
+         mortality_upp = if_else(mortality_upp < 0, 0, mortality_upp)) %>% 
   unite_ci("mort", starts_with("mortality"),
            m100 = FALSE, percent = FALSE) %>% 
-  pivot_wider(id_cols = cause_of_death,     # choose variable for rows
+  pivot_wider(id_cols = cause,     # choose variable for rows
               names_from = health_district, # choose variable for columns 
               values_from = mort) %>%       # choose what goes in cells
-  select("Cause of death" = cause_of_death, 
-         "District A MR (95%CI)" = "District A", 
-         "District B MR (95%CI)" = "District B") %>% 
+  select("Cause of death" = cause, 
+         "District A MR (95%CI)" = "district_a", 
+         "District B MR (95%CI)" = "district_b") %>% 
   kable(digits = 1)
 ```
 
@@ -1560,7 +1667,7 @@ The below chunk calculate values that are displayed inline
 This will calculate weighted mortality ratios per 10,000 person-days by gender 
 using the survey_design object. 
 
-Note the posibility of negative confidence intervals if there are low counts
+Note the possibility of negative confidence intervals if there are low counts
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ -->
 
 ```{r gender_CMR}
@@ -1568,11 +1675,14 @@ Note the posibility of negative confidence intervals if there are low counts
 cause_of_death_sex <- survey_design %>% 
   group_by(sex) %>% 
   summarize(mortality = survey_ratio(as.numeric(died) * 10000, obstime, vartype = "ci")) %>% 
+  ## if negative CIs set to zero
+  mutate(mortality_low = if_else(mortality_low < 0, 0, mortality_low), 
+         mortality_upp = if_else(mortality_upp < 0, 0, mortality_upp)) %>% 
   ## merge confidence intervals for mortality in to one column (do not change to percent)
   unite_ci("mortality", starts_with("mortality"), m100 = FALSE, percent = FALSE)
 
-male_mortality   <- cause_of_death_sex %>% filter(sex == "Male") %>% pull(mortality)
-female_mortality <- cause_of_death_sex %>% filter(sex == "Female") %>% pull(mortality)
+male_mortality   <- cause_of_death_sex %>% filter(sex == "male") %>% pull(mortality)
+female_mortality <- cause_of_death_sex %>% filter(sex == "female") %>% pull(mortality)
 ```
 
 The gender specific mortality rate was `r female_mortality` deaths/10,000 persons/day amongst females and
@@ -1596,7 +1706,7 @@ as if no deaths or recoded to zero (impossible to have negative deaths).
 
 survey_design %>% 
   filter(died) %>% 
-  tab_survey(cause_of_death, strata = age_group) %>%
+  tab_survey(cause, strata = age_group) %>%
   filter(value != "Not Applicable") %>%
   select(-variable) %>% 
   rename("Cause of death" = value) %>%
@@ -1624,7 +1734,7 @@ as if no deaths or recoded to zero (impossible to have negative deaths).
 
 survey_design %>% 
   filter(died) %>% 
-  tab_survey(cause_of_death, strata = sex) %>%
+  tab_survey(cause, strata = sex) %>%
   filter(value != "Not Applicable") %>%
   select(-variable) %>% 
   rename("Cause of death" = value) %>%
@@ -1780,15 +1890,15 @@ the US CDC SUDAAN method for calculating CIs
 
 ```{r weighted_symptoms_reported}
 
-survey_design %>%                  
-  filter(q18_q8_sick == "Yes") %>% # filter for those who were sick in last 2 weeks
-  # calculate weighted counts and weighted proportions 
-  tab_survey(contains("symptoms"), drop = "", method = "xlogit", digits = 2) %>%
-  select("Symptom" = value,
-         "N reported" = n,
-         "% (95% CI)" = ci
-        ) %>%
-  kable(digits = 1)
+# survey_design %>%                  
+#   filter(sick == "yes") %>% # filter for those who were sick in last 2 weeks
+#   # calculate weighted counts and weighted proportions 
+#   tab_survey(contains("symptoms"), drop = "", method = "xlogit", digits = 2) %>%
+#   select("Symptom" = value,
+#          "N reported" = n,
+#          "% (95% CI)" = ci
+#         ) %>%
+#   kable(digits = 1)
 ```
 
 
@@ -1806,17 +1916,17 @@ Note that empty rows (those with "") are dropped and the method (xlogit) is
 the US CDC SUDAAN method for calculating CIs
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ -->
 ```{r weighted_symptoms_reported_age, warning = FALSE}
-
-survey_design %>%                  
-  filter(q18_q8_sick == "Yes") %>% # filter for those who were sick in last 2 weeks
-  # calculate weighted counts and weighted proportions - stratified by agegroup!!
-  tab_survey(contains("symptoms"), drop = "", method = "xlogit", digits = 2,
-             strata = age_group, pretty = TRUE) %>%
-  select(-variable) %>%
-  rename("Symptom" = value) %>%
-  augment_redundant(" (n)"      = " n") %>% # wrap all "n" in braces (note space before n)
-  rename_redundant("% (95% CI)" = "ci") %>% # relabel all columns containing "ci"
-  kable(digits = 1)
+# 
+# survey_design %>%                  
+#   filter(sick == "yes") %>% # filter for those who were sick in last 2 weeks
+#   # calculate weighted counts and weighted proportions - stratified by agegroup!!
+#   tab_survey(contains("symptoms"), drop = "", method = "xlogit", digits = 2,
+#              strata = age_group, pretty = TRUE) %>%
+#   select(-variable) %>%
+#   rename("Symptom" = value) %>%
+#   augment_redundant(" (n)"      = " n") %>% # wrap all "n" in braces (note space before n)
+#   rename_redundant("% (95% CI)" = "ci") %>% # relabel all columns containing "ci"
+#   kable(digits = 1)
 ```
 
 
@@ -1835,16 +1945,16 @@ the US CDC SUDAAN method for calculating CIs
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ -->
 ```{r weighted_symptoms_reported_sex}
 
-survey_design %>%                  
-  filter(q18_q8_sick == "Yes") %>% # filter for those who were sick in last 2 weeks
-  # calculate weighted counts and weighted proportions - stratified by sex!!
-  tab_survey(contains("symptoms"), drop = "", method = "xlogit", digits = 2,
-             strata = sex, pretty = TRUE) %>%
-  select(-variable) %>%
-  rename("Symptom" = value) %>%
-  augment_redundant(" (n)"      = " n") %>% # wrap all "n" in braces (note space before n)
-  rename_redundant("% (95% CI)" = "ci") %>% # relabel all columns containing "ci"
-  kable(digits = 1)
+# survey_design %>%                  
+#   filter(sick == "yes") %>% # filter for those who were sick in last 2 weeks
+#   # calculate weighted counts and weighted proportions - stratified by sex!!
+#   tab_survey(contains("symptoms"), drop = "", method = "xlogit", digits = 2,
+#              strata = sex, pretty = TRUE) %>%
+#   select(-variable) %>%
+#   rename("Symptom" = value) %>%
+#   augment_redundant(" (n)"      = " n") %>% # wrap all "n" in braces (note space before n)
+#   rename_redundant("% (95% CI)" = "ci") %>% # relabel all columns containing "ci"
+#   kable(digits = 1)
 
 ```
 

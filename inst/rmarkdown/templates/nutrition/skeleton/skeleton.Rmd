@@ -452,6 +452,11 @@ unique(study_data_raw$sex)
 study_data_raw %>% 
   filter(age_month < 6 & height > 100) %>% 
   select("fact_0_id")
+
+## use the dfSummary function in combination with view
+## note that view is not capitalised with this package
+# summarytools::dfSummary(study_data_cleaned) %>%
+#   summarytools::view()
 ```
 
 
@@ -470,7 +475,7 @@ The chunks are:
 - factor_vars          -- helps clean factor variables
 - nutrition_indicators -- calculates z-scores and cutoffs
 - remove_unused_data   -- dropping unused rows/columns
-- survey_weights       -- claculating survey weights according to study design
+- survey_weights       -- calculating survey weights according to study design
 - survey_design        -- create a survey object for weighted analysis 
 
 You must adapt this section according to your data!
@@ -630,6 +635,18 @@ study_data_cleaned <- study_data_cleaned %>%
   )
 
 
+## Recode character variables
+## This step shows how to fix misspellings in the geographic region variable.
+## Ideally, you want these values to match and population data!
+# study_data_cleaned <- study_data_cleaned %>%
+#   mutate(village_name = case_when(
+#     village_name == "Valliages 1"       ~ "village 1",
+#     village_name == "Village1"          ~ "village 1",
+#     village_name == "Town 3"            ~ "village 3"
+#     village_name == "Town3"             ~ "village 3",
+#     TRUE ~ as.character(village_name))
+#   ))
+
 ## explicitly replace NA of a factor
 # study_data_cleaned <- study_data_cleaned %>%
 #   mutate(coverage = fct_explicit_na(coverage, na_level = "Not Applicable"))
@@ -718,9 +735,9 @@ study_data_cleaned <- study_data_cleaned %>%
 
 
 ## underweight according to height for age z-scores 
-## * Underweight: WAZ score < -2; 
+## * Underweight: WAZ score < -2 OR oedema; 
 ## * moderate underweight: WAZ score >=-3 and <-2; 
-## * Severe underweight: WAZ <-3
+## * Severe underweight: WAZ < -3 OR oedema
 study_data_cleaned <- study_data_cleaned %>% 
   mutate(
     underweight_waz = zwei < -2 | oedema == "Yes", 
@@ -829,6 +846,53 @@ study_data_cleaned <- anti_join(study_data_cleaned, dropped, by = names(dropped)
 
 
 
+<!-- ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/// duplicates \\\
+--------------------------------------------------------------------------------
+This chunk removes duplicate cases based on case_number, sex and age_group. 
+(you can edit to use whichever unique identifiers you think relevant)
+There are two options for this. Option 1 simply keeps the first occurrence of a 
+duplicated case. 
+Option 2 gives you the ability to create a TRUE/FALSE variable to flag rows that
+are duplicated - giving you more flexibility around browsing which ones to drop. 
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ -->
+
+```{r duplicates}
+## option 1: only keep the first occurrence of duplicate case 
+study_data_cleaned <- study_data_cleaned %>% 
+  ## find duplicates based on case number, sex and age group 
+  ## only keep the first occurrence 
+  distinct(uid, sex, age_group, .keep_all = TRUE)
+  
+# ## option 2: create flagging variables for duplicates (then use to browse)
+# 
+# study_data_cleaned <- study_data_cleaned %>% 
+#   ## choose which variables to use for finding unique rows 
+#   group_by(uid, sex, age_group) %>% 
+#   mutate(
+#     ## get the number of times duplicate occurs 
+#     num_dupes = n(), 
+#     duped = if_else(num_dupes > 1 , TRUE, FALSE)
+#   )
+# 
+# ## browse duplicates based on flagging variables 
+# study_data_cleaned %>% 
+#   ## only keep rows that are duplicated
+#   filter(duped) %>% 
+#   ## arrange by variables of interest 
+#   arrange(uid, sex, age_group) %>% 
+#   View()
+# 
+# ## filter duplicates to only keep the row with the earlier entry 
+# study_data_cleaned %>% 
+#   ## choose which variables to use for finding unique rows 
+#   group_by(uid, sex, age_group) %>% 
+#   ## sort to have the earliest date by person first
+#   arrange(as.Date(submission_time)) %>% 
+#   ## only keep the earliest row 
+#   slice(1)
+```
+
 
 <!-- ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 /// survey_weights \\\
@@ -930,7 +994,7 @@ survey_design_strata <- study_data_cleaned %>%
 ## cluster ---------------------------------------------------------------------
 
 survey_design_cluster <- study_data_cleaned %>% 
-  as_survey_design(ids = village, # 1 for no cluster ids 
+  as_survey_design(ids = village,  # cluster ids 
                    weights = surv_weight_cluster, # weight variable created above 
                    strata = NULL # sampling was simple (no strata)
                   )
@@ -938,9 +1002,9 @@ survey_design_cluster <- study_data_cleaned %>%
 ## stratified cluster ----------------------------------------------------------
 
 survey_design <- study_data_cleaned %>% 
-  as_survey_design(ids = village, # 1 for no cluster ids 
+  as_survey_design(ids = village,  # cluster ids  
                    weights = surv_weight_cluster_strata, # weight variable created above 
-                   strata = health_district # sampling was simple (no strata)
+                   strata = health_district # sampling was stratified by district
                   )
 ```
 
@@ -956,7 +1020,7 @@ current date.
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ -->
 
 ```{r save_cleaned_data}
-# rio::export(study_data_cleaned, str_glue("study_data_cleaned_{Sys.Date()}.xlsx"))
+# rio::export(study_data_cleaned, here::here("Data", str_glue("study_data_cleaned_{Sys.Date()}.xlsx")))
 ```
 
 
@@ -1121,7 +1185,8 @@ ag <- tab_linelist(study_data_cleaned, "age_group") %>%
   mutate(age_group = fct_inorder(age_group))
 
 ## counts and props of the source population
-propcount <- group_by(population_data_age, age_group) %>%
+propcount <- population_data_age %>% 
+  group_by(age_group) %>%
   tally(population) %>%
   mutate(proportion = n / sum(n))
 
@@ -1305,7 +1370,8 @@ plot_age_pyramid(study_data_cleaned,
                  age_group = "age_group", 
                  split_by = "sex",
                  stack_by = "health_district",
-                 proportion = TRUE) + 
+                 proportion = TRUE, 
+                 pal = c("red", "blue")) + 
   labs(y = "Proportion", x = "Age group (years)") +                 # change axis labels
   theme(legend.position = "bottom",     # move legend to bottom
         legend.title = element_blank(), # remove title
